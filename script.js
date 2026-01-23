@@ -56,6 +56,11 @@ function updateStatus(value) {
     noiseStatus.textContent = "Too Noisy";
     noiseStatus.classList.add("noisy");
   }
+
+    const progress = document.getElementById("noiseProgress");
+    const percent = Math.min((value / activePreset.threshold) * 100, 100);
+    progress.style.width = percent + "%";
+
 }
 
 /* Threshold Log (5-second clip simulation) */
@@ -66,6 +71,7 @@ function checkThreshold(value, time) {
       clip: "5-second clip captured"
     });
     renderLogs();
+    renderLogTree();
   }
 }
 
@@ -129,4 +135,61 @@ presets.forEach(p => {
 setInterval(() => {
   simulateNoise();
   renderHistory();
+  renderHistoryTree();
 }, 3000);
+
+function renderHistoryTree() {
+  const tree = document.getElementById("historyTree");
+  tree.innerHTML = "";
+
+  const grouped = {};
+
+  noiseHistory.forEach(n => {
+    const date = n.timestamp.toDateString();
+    const session = getSession(n.timestamp);
+
+    grouped[date] ??= {};
+    grouped[date][session] ??= [];
+    grouped[date][session].push(n);
+  });
+
+  Object.keys(grouped).forEach(date => {
+    const dateNode = document.createElement("details");
+    dateNode.innerHTML = `<summary>${date}</summary>`;
+
+    Object.keys(grouped[date]).forEach(session => {
+      const sNode = document.createElement("details");
+      sNode.innerHTML = `<summary>${session}</summary>`;
+
+      grouped[date][session].forEach(n => {
+        const p = document.createElement("p");
+        p.textContent = `${n.timestamp.toLocaleTimeString()} — 5s clip`;
+        sNode.appendChild(p);
+      });
+
+      dateNode.appendChild(sNode);
+    });
+
+    tree.appendChild(dateNode);
+  });
+}
+
+function renderLogTree() {
+  const tree = document.getElementById("logTree");
+  tree.innerHTML = "";
+
+  systemLogs.forEach(l => {
+    const p = document.createElement("p");
+    p.textContent = `${l.time} — Threshold exceeded`;
+    tree.appendChild(p);
+  });
+}
+
+function openModal(id) {
+  document.getElementById(id).style.display = "flex";
+}
+
+function closeModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+
