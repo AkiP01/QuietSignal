@@ -57,15 +57,11 @@
 
 </main>
 
-
-
-<script src="script.js"></script>
-
-<div class="modal" id="presetModal">
-  <div class="modal-content">
-    <button class="close-btn" onclick="closeModal('presetModal')">← Back</button>
+<div class="modal-overlay" id="presetModal">
+  <div class="modal">
+    <button class="modal-back" onclick="closeModal()">← Back</button>
     <h2>Create Noise Preset</h2>
-
+    
     <label>Preset Name</label>
     <input type="text" id="presetName" placeholder="Lecture, Quiz Time..." />
 
@@ -84,25 +80,28 @@
     </label>
 
     <button onclick="addPreset()">Save Preset</button>
+    
   </div>
 </div>
 
-<div class="modal" id="historyModal">
-  <div class="modal-content">
-    <button class="close-btn" onclick="closeModal('historyModal')">← Back</button>
+<div class="modal-overlay" id="historyModal">
+  <div class="modal">
+    <button class="modal-back" onclick="closeModal()">← Back</button>
     <h2>Noise History</h2>
     <div id="historyTree"></div>
   </div>
 </div>
 
-<div class="modal" id="logModal">
-  <div class="modal-content">
-    <button class="close-btn" onclick="closeModal('logModal')">← Back</button>
+<div class="modal-overlay" id="logModal">
+  <div class="modal">
+    <button class="modal-back" onclick="closeModal()">← Back</button>
     <h2>System Logs</h2>
     <div id="logTree"></div>
   </div>
 </div>
 
 
+
+<script src="script.js"></script>
 </body>
 </html>
