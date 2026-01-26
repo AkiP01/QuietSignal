@@ -110,7 +110,6 @@ function renderHistory() {
 
   output.innerHTML = html;
 }
-
 /* Logs UI */
 function renderLogs() {
   const list = document.getElementById("logList");
@@ -186,10 +185,21 @@ function renderLogTree() {
 }
 
 function openModal(id) {
-  document.getElementById(id).style.display = "flex";
+  document.getElementById(id).classList.add("active");
 }
 
-function closeModal(id) {
-  document.getElementById(id).style.display = "none";
+function closeModal() {
+  document.querySelectorAll(".modal-overlay").forEach(m =>
+    m.classList.remove("active")
+  );
 }
 
+document.getElementById("openLogsBtn").onclick = () => {
+  openModal("logsModal");
+};
+
+window.addEventListener("load", () => {
+  document.querySelectorAll(".modal-overlay").forEach(modal => {
+    modal.classList.remove("active");
+  });
+});
