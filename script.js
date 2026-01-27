@@ -12,6 +12,10 @@ let deleteConfirmTimer = null;
 let deleteArmedIndex = null;
 let editingIndex = null;
 let lastCameraState = null;
+let noiseHistory = [];
+let systemLogs = []; 
+// each item: { timestamp: Date, message: string }
+
 
 // ================= CAMERA CONFIG =================
 const MEDIA_MTX_IP = "192.168.1.6";
@@ -212,12 +216,6 @@ menuToggle.onclick = () => {
 };
 
 let activePreset = presets[0];
-
-/* Noise Simulation */
-let noiseHistory = [];
-let systemLogs = []; 
-// each item: { timestamp: Date, message: string }
-
 
 function simulateNoise() {
   const value = Math.floor(Math.random() * 40) + 50;
@@ -624,6 +622,7 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
+
 
 
 
