@@ -622,13 +622,3 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
-
-
-
-
-
-
-
-
-
-
