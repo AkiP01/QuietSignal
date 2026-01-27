@@ -18,6 +18,30 @@ const MEDIA_MTX_IP = "192.168.1.6";
 const IS_HTTPS = location.protocol === "https:";
 
 function setCameraStatus(state) {
+  const dot = document.getElementById("cameraStatusDot");
+  const text = document.getElementById("cameraStatusText");
+  const icon = document.getElementById("cameraIcon");
+
+  dot.className = "status-dot";
+  icon.className = "camera-icon";
+
+  if (state === "online") {
+    dot.classList.add("online");
+    icon.classList.add("online");
+    text.textContent = "Camera: Online";
+  } 
+  else if (state === "connecting") {
+    dot.classList.add("connecting");
+    icon.classList.add("connecting");
+    text.textContent = "Camera: Connecting…";
+  } 
+  else {
+    dot.classList.add("offline");
+    icon.classList.add("offline");
+    text.textContent = "Camera: Offline";
+  }
+
+  // logging (your existing logic)
   if (state !== lastCameraState) {
     logSystem(
       state === "online"
@@ -29,7 +53,9 @@ function setCameraStatus(state) {
   }
 }
 
+
 async function startCamera() {
+  setCameraStatus("connecting");
   try {
     const pc = new RTCPeerConnection();
 
@@ -598,6 +624,7 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
+
 
 
 
