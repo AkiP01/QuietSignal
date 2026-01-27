@@ -58,13 +58,7 @@ async function startCamera() {
     };
 
     pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === "connected") {
-        setCameraStatus("online");
-      }
-      if (
-        pc.iceConnectionState === "failed" ||
-        pc.iceConnectionState === "disconnected"
-      ) {
+      if (pc.iceConnectionState === "failed") {
         setCameraStatus("offline");
       }
     };
@@ -72,12 +66,21 @@ async function startCamera() {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
+    // ✅ WAIT for ICE to be fully gathered
+    await new Promise(resolve => {
+      pc.onicecandidate = e => {
+        if (e.candidate === null) {
+          resolve();
+        }
+      };
+    });
+
     const res = await fetch(
       `http://${MEDIA_MTX_IP}:8889/tapo_cam/whep`,
       {
         method: "POST",
         headers: { "Content-Type": "application/sdp" },
-        body: offer.sdp
+        body: pc.localDescription.sdp
       }
     );
 
@@ -89,6 +92,7 @@ async function startCamera() {
     });
 
     console.log("WebRTC connected");
+    setCameraStatus("online");
 
   } catch (err) {
     console.error("Camera error:", err);
@@ -616,4 +620,5 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
+
 
