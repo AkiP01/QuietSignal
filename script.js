@@ -49,46 +49,35 @@ function updateCameraStatus(state) {
   }
 }
 
-
 async function startCamera() {
   try {
-    const pc = new RTCPeerConnection({
-      iceServers: [
-    { urls: "stun:stun.l.google.com:19302" }
-  ]
-});
-
+    const pc = new RTCPeerConnection();
 
     pc.ontrack = e => {
       document.getElementById("cameraFeed").srcObject = e.streams[0];
     };
 
     pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === "failed") {
-        alert("Camera stream unavailable. Make sure MediaMTX is running.");
+      if (pc.iceConnectionState === "connected") {
+        setCameraStatus("online");
+      }
+      if (
+        pc.iceConnectionState === "failed" ||
+        pc.iceConnectionState === "disconnected"
+      ) {
+        setCameraStatus("offline");
       }
     };
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    // ✅ WAIT until ICE info exists
-    await new Promise(resolve => {
-  if (pc.iceGatheringState === "complete") return resolve();
-  pc.onicegatheringstatechange = () => {
-    if (pc.iceGatheringState === "complete") {
-      resolve();
-    }
-  };
-});
-
-
     const res = await fetch(
       `http://${MEDIA_MTX_IP}:8889/tapo_cam/whep`,
       {
         method: "POST",
         headers: { "Content-Type": "application/sdp" },
-        body: pc.localDescription.sdp
+        body: offer.sdp
       }
     );
 
@@ -100,7 +89,6 @@ async function startCamera() {
     });
 
     console.log("WebRTC connected");
-    setCameraStatus("online");
 
   } catch (err) {
     console.error("Camera error:", err);
@@ -108,10 +96,7 @@ async function startCamera() {
   }
 }
 
-
-
 startCamera();
-
 
 deleteBtn.onclick = () => {
   if (editingIndex === null) return;
