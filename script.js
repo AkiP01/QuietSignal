@@ -13,6 +13,10 @@ let deleteArmedIndex = null;
 let editingIndex = null;
 let lastCameraState = null;
 
+// ================= CAMERA CONFIG =================
+const MEDIA_MTX_IP = "192.168.1.6";
+
+
 function setCameraStatus(state) {
   if (state !== lastCameraState) {
     logSystem(
@@ -29,35 +33,40 @@ async function startCamera() {
   try {
     const pc = new RTCPeerConnection();
 
-    pc.ontrack = event => {
-      console.log("Video track received");
-      const video = document.getElementById("cameraFeed");
-      video.srcObject = event.streams[0];
-      setCameraStatus("online");
+    pc.ontrack = e => {
+      document.getElementById("video").srcObject = e.streams[0];
     };
 
-    pc.onconnectionstatechange = () => {
-      console.log("WebRTC state:", pc.connectionState);
-      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-        setCameraStatus("offline");
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === "failed") {
+        alert("Camera stream unavailable. Make sure MediaMTX is running.");
       }
     };
-
-    // 🔴 REQUIRED
-    pc.addTransceiver("video", { direction: "recvonly" });
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    const res = await fetch("http://192.168.1.6:8889/tapo_cam/whep", {
-      method: "POST",
-      headers: { "Content-Type": "application/sdp" },
-      body: offer.sdp
+    // ✅ WAIT until ICE info exists
+    await new Promise(resolve => {
+      if (pc.localDescription.sdp.includes("ice-ufrag")) {
+        resolve();
+      } else {
+        pc.onicegatheringstatechange = () => {
+          if (pc.iceGatheringState === "complete") {
+            resolve();
+          }
+        };
+      }
     });
 
-    if (!res.ok) {
-      throw new Error("WHEP request failed");
-    }
+    const res = await fetch(
+      `http://${MEDIA_MTX_IP}:8889/tapo_cam/whep`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/sdp" },
+        body: pc.localDescription.sdp
+      }
+    );
 
     const answerSDP = await res.text();
 
@@ -67,11 +76,14 @@ async function startCamera() {
     });
 
     console.log("WebRTC connected");
+    setCameraStatus("online");
+
   } catch (err) {
     console.error("Camera error:", err);
     setCameraStatus("offline");
   }
 }
+
 
 
 startCamera();
