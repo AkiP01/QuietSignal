@@ -10,6 +10,8 @@ const saveBtn   = document.getElementById("savePresetBtn");
 const newBtn    = document.getElementById("newPresetBtn");
 let deleteConfirmTimer = null;
 let deleteArmedIndex = null;
+let editingIndex = null;
+
 
 
 deleteBtn.onclick = () => {
@@ -82,6 +84,7 @@ function renderPresetButtons() {
   presets.forEach(preset => {
     const btn = document.createElement("button");
     btn.textContent = preset.name;
+    btn.classList.toggle("active", preset === activePreset);
 
     btn.onclick = () => {
     activePreset = preset;
@@ -385,9 +388,6 @@ document.querySelectorAll(".modal").forEach(modal => {
   });
 });
 
-
-let editingIndex = null;
-
 function editPreset(index) {
   const preset = presets[index];
   editingIndex = index;
@@ -422,6 +422,13 @@ function editPreset(index) {
   } else {
     deleteBtn.style.opacity = "1";
   }
+
+  editingIndex = index;
+
+  document.getElementById("addPresetBtn").style.display = "none";
+  document.getElementById("updatePresetBtn").style.display = "block";
+  document.getElementById("deletePresetBtn").style.display = "block";
+
 }
 
 
@@ -435,6 +442,8 @@ function addPreset() {
   if (editingIndex === null && presets.length >= 5) {
     return alert("Maximum of 5 presets allowed");
   }
+
+  if (editingIndex !== null) return;
 
   const data = {
     name,
@@ -506,4 +515,20 @@ function startNewPreset() {
   document.getElementById("newPresetBtn").style.display = "none";
   document.getElementById("deletePresetBtn").style.display = "none";
   document.getElementById("savePresetBtn").textContent = "Add Preset";
+}
+
+function updatePreset() {
+  if (editingIndex === null) return;
+
+  presets[editingIndex] = {
+    name: presetName.value.trim(),
+    threshold: +thresholdSlider.value,
+    volume: +volumeSlider.value,
+    interval: +beepInterval.value
+  };
+
+  editingIndex = null;
+  resetPresetForm();
+  renderPresetButtons();
+  renderPresetList();
 }
