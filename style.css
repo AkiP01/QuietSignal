@@ -396,26 +396,27 @@ button {
   margin-bottom: 6px;
 }
 
-.status-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: gray;
+.camera-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  opacity: 0.8;
 }
 
-.status-dot.online {
-  background: #4caf50; /* green */
+.camera-icon.online {
+  color: #4caf50;
 }
 
-.status-dot.connecting {
-  background: #ffb300; /* yellow */
+.camera-icon.connecting {
+  color: #ffb300;
 }
 
-.status-dot.offline {
-  background: #e53935; /* red */
+.camera-icon.offline {
+  color: #e53935;
 }
+
 
 .status-text {
   font-size: 0.9rem;
   font-weight: 600;
 }
+
