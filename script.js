@@ -58,9 +58,6 @@ async function startCamera() {
     };
 
     pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === "connected") {
-        setCameraStatus("online");
-      }
       if (pc.iceConnectionState === "failed") {
         setCameraStatus("offline");
       }
@@ -85,11 +82,15 @@ async function startCamera() {
       sdp: answerSDP
     });
 
+    setCameraStatus("online");
+    console.log("WebRTC connected");
+
   } catch (err) {
-    console.error(err);
+    console.error("Camera error:", err);
     setCameraStatus("offline");
   }
 }
+
 startCamera();
 
 deleteBtn.onclick = () => {
@@ -610,6 +611,7 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
+
 
 
 
