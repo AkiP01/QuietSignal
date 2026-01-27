@@ -14,6 +14,8 @@ let editingIndex = null;
 let lastCameraState = null;
 
 // ================= CAMERA CONFIG =================
+const MEDIA_MTX_IP = "192.168.1.6";
+
 
 function setCameraStatus(state) {
   if (state !== lastCameraState) {
@@ -27,51 +29,42 @@ function setCameraStatus(state) {
   }
 }
 
-function updateCameraStatus(state) {
-  const dot = document.getElementById("cameraStatusDot");
-  const text = document.getElementById("cameraStatusText");
-
-  dot.className = "status-dot";
-
-  if (state === "online") {
-    dot.classList.add("online");
-    text.textContent = "Camera: Online";
-  } 
-  else if (state === "connecting") {
-    dot.classList.add("connecting");
-    text.textContent = "Camera: Connecting…";
-  } 
-  else {
-    dot.classList.add("offline");
-    text.textContent = "Camera: Offline";
-  }
-}
-
-const MEDIA_MTX_IP = "192.168.1.6";
-
 async function startCamera() {
   try {
     const pc = new RTCPeerConnection();
 
     pc.ontrack = e => {
-      document.getElementById("cameraFeed").srcObject = e.streams[0];
+      document.getElementById("video").srcObject = e.streams[0];
     };
 
     pc.oniceconnectionstatechange = () => {
       if (pc.iceConnectionState === "failed") {
-        setCameraStatus("offline");
+        alert("Camera stream unavailable. Make sure MediaMTX is running.");
       }
     };
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
+    // ✅ WAIT until ICE info exists
+    await new Promise(resolve => {
+      if (pc.localDescription.sdp.includes("ice-ufrag")) {
+        resolve();
+      } else {
+        pc.onicegatheringstatechange = () => {
+          if (pc.iceGatheringState === "complete") {
+            resolve();
+          }
+        };
+      }
+    });
+
     const res = await fetch(
       `http://${MEDIA_MTX_IP}:8889/tapo_cam/whep`,
       {
         method: "POST",
         headers: { "Content-Type": "application/sdp" },
-        body: offer.sdp
+        body: pc.localDescription.sdp
       }
     );
 
@@ -82,8 +75,8 @@ async function startCamera() {
       sdp: answerSDP
     });
 
-    setCameraStatus("online");
     console.log("WebRTC connected");
+    setCameraStatus("online");
 
   } catch (err) {
     console.error("Camera error:", err);
@@ -91,7 +84,10 @@ async function startCamera() {
   }
 }
 
+
+
 startCamera();
+
 
 deleteBtn.onclick = () => {
   if (editingIndex === null) return;
@@ -611,6 +607,8 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
+
+
 
 
 
