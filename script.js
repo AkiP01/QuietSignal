@@ -31,43 +31,37 @@ function setCameraStatus(state) {
 
 async function startCamera() {
   try {
-    if (IS_HTTPS) {
-      console.warn("HTTPS page → local WebRTC. User permission required.");
-    }
-
     const pc = new RTCPeerConnection();
 
-    pc.ontrack = e => {
-      document.getElementById("cameraFeed").srcObject = e.streams[0];
+    pc.ontrack = event => {
+      console.log("Video track received");
+      const video = document.getElementById("cameraFeed");
+      video.srcObject = event.streams[0];
+      setCameraStatus("online");
     };
 
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === "failed") {
+    pc.onconnectionstatechange = () => {
+      console.log("WebRTC state:", pc.connectionState);
+      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
         setCameraStatus("offline");
       }
     };
 
+    // 🔴 REQUIRED
+    pc.addTransceiver("video", { direction: "recvonly" });
+
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    // wait for ICE info
-    await new Promise(resolve => {
-      if (pc.localDescription.sdp.includes("ice-ufrag")) resolve();
-      pc.onicegatheringstatechange = () => {
-        if (pc.iceGatheringState === "complete") resolve();
-      };
+    const res = await fetch("http://192.168.1.6:8889/tapo_cam/whep", {
+      method: "POST",
+      headers: { "Content-Type": "application/sdp" },
+      body: offer.sdp
     });
 
-    const res = await fetch(
-      `http://${MEDIA_MTX_IP}:8889/tapo_cam/whep`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/sdp" },
-        body: pc.localDescription.sdp
-      }
-    );
-
-    if (!res.ok) throw new Error("WHEP request failed");
+    if (!res.ok) {
+      throw new Error("WHEP request failed");
+    }
 
     const answerSDP = await res.text();
 
@@ -76,9 +70,7 @@ async function startCamera() {
       sdp: answerSDP
     });
 
-    setCameraStatus("online");
     console.log("WebRTC connected");
-
   } catch (err) {
     console.error("Camera error:", err);
     setCameraStatus("offline");
@@ -606,6 +598,7 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
+
 
 
 
