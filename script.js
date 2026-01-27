@@ -29,12 +29,38 @@ function setCameraStatus(state) {
   }
 }
 
+function updateCameraStatus(state) {
+  const dot = document.getElementById("cameraStatusDot");
+  const text = document.getElementById("cameraStatusText");
+
+  dot.className = "status-dot";
+
+  if (state === "online") {
+    dot.classList.add("online");
+    text.textContent = "Camera: Online";
+  } 
+  else if (state === "connecting") {
+    dot.classList.add("connecting");
+    text.textContent = "Camera: Connecting…";
+  } 
+  else {
+    dot.classList.add("offline");
+    text.textContent = "Camera: Offline";
+  }
+}
+
+
 async function startCamera() {
   try {
-    const pc = new RTCPeerConnection();
+    const pc = new RTCPeerConnection({
+      iceServers: [
+    { urls: "stun:stun.l.google.com:19302" }
+  ]
+});
+
 
     pc.ontrack = e => {
-      document.getElementById("video").srcObject = e.streams[0];
+      document.getElementById("cameraFeed").srcObject = e.streams[0];
     };
 
     pc.oniceconnectionstatechange = () => {
@@ -48,16 +74,14 @@ async function startCamera() {
 
     // ✅ WAIT until ICE info exists
     await new Promise(resolve => {
-      if (pc.localDescription.sdp.includes("ice-ufrag")) {
-        resolve();
-      } else {
-        pc.onicegatheringstatechange = () => {
-          if (pc.iceGatheringState === "complete") {
-            resolve();
-          }
-        };
-      }
-    });
+  if (pc.iceGatheringState === "complete") return resolve();
+  pc.onicegatheringstatechange = () => {
+    if (pc.iceGatheringState === "complete") {
+      resolve();
+    }
+  };
+});
+
 
     const res = await fetch(
       `http://${MEDIA_MTX_IP}:8889/tapo_cam/whep`,
