@@ -14,8 +14,6 @@ let editingIndex = null;
 let lastCameraState = null;
 
 // ================= CAMERA CONFIG =================
-const MEDIA_MTX_IP = "192.168.1.6";
-
 
 function setCameraStatus(state) {
   if (state !== lastCameraState) {
@@ -49,6 +47,8 @@ function updateCameraStatus(state) {
   }
 }
 
+const MEDIA_MTX_IP = "192.168.1.6";
+
 async function startCamera() {
   try {
     const pc = new RTCPeerConnection();
@@ -58,6 +58,9 @@ async function startCamera() {
     };
 
     pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === "connected") {
+        setCameraStatus("online");
+      }
       if (pc.iceConnectionState === "failed") {
         setCameraStatus("offline");
       }
@@ -66,21 +69,12 @@ async function startCamera() {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    // ✅ WAIT for ICE to be fully gathered
-    await new Promise(resolve => {
-      pc.onicecandidate = e => {
-        if (e.candidate === null) {
-          resolve();
-        }
-      };
-    });
-
     const res = await fetch(
       `http://${MEDIA_MTX_IP}:8889/tapo_cam/whep`,
       {
         method: "POST",
         headers: { "Content-Type": "application/sdp" },
-        body: pc.localDescription.sdp
+        body: offer.sdp
       }
     );
 
@@ -91,15 +85,11 @@ async function startCamera() {
       sdp: answerSDP
     });
 
-    console.log("WebRTC connected");
-    setCameraStatus("online");
-
   } catch (err) {
-    console.error("Camera error:", err);
+    console.error(err);
     setCameraStatus("offline");
   }
 }
-
 startCamera();
 
 deleteBtn.onclick = () => {
@@ -620,5 +610,6 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
+
 
 
