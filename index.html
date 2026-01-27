@@ -60,29 +60,50 @@
 <div class="modal-overlay" id="presetModal">
   <div class="modal">
     <button class="modal-back" onclick="closeModal()">← Back</button>
-    <h2>Create Noise Preset</h2>
-    
-    <label>Preset Name</label>
-    <input type="text" id="presetName" placeholder="Lecture, Quiz Time..." />
 
-    <label>Noise Threshold (dB)</label>
-    <input type="range" id="thresholdSlider" min="40" max="100" value="70" />
+    <h2>Preset Options</h2>
 
-    <label>Beep Volume</label>
-    <input type="range" min="0" max="100" value="50" />
+    <!-- CREATE PRESET -->
+    <section class="preset-section">
+      <h3>Create New Preset</h3>
 
-    <label>Beep Interval (seconds)</label>
-    <input type="number" min="1" max="30" value="5" />
+      <label>Preset Name</label>
+      <input type="text" id="presetName" placeholder="Lecture, Quiz Time..." />
 
-    <label>
-      <input type="checkbox" checked />
-      Enable Visual Alert
-    </label>
+      <label>Noise Threshold (0–100)</label>
+      <div class="slider-input">
+        <input type="range" id="thresholdSlider" min="0" max="100" value="70" />
+        <input type="number" id="thresholdInput" min="0" max="100" value="70" />
+      </div>
 
-    <button onclick="addPreset()">Save Preset</button>
-    
+      <label>Beep Volume (0–100)</label>
+      <div class="slider-input">
+        <input type="range" id="volumeSlider" min="0" max="100" value="50" />
+        <input type="number" id="volumeInput" min="0" max="100" value="50" />
+      </div>
+
+      <label>Beep Interval (seconds)</label>
+      <input type="number" id="beepInterval" min="1" max="30" value="5" />
+
+      <button id="deletePresetBtn" style="display:none; background:#c62828; color:white;">
+        Delete Preset
+      </button>
+
+      <button id="savePresetBtn" onclick="addPreset()">Add Preset</button>
+      <button id="newPresetBtn" style="display:none;" onclick="startNewPreset()">
+        + Add New Preset
+      </button>
+
+    </section>
+
+    <!-- EXISTING PRESETS -->
+    <section class="preset-section">
+      <h3>Existing Presets</h3>
+      <div id="presetList"></div>
+    </section>
   </div>
 </div>
+
 
 <div class="modal-overlay" id="historyModal">
   <div class="modal">
