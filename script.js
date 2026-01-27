@@ -15,7 +15,7 @@ let lastCameraState = null;
 
 // ================= CAMERA CONFIG =================
 const MEDIA_MTX_IP = "192.168.1.6";
-
+const IS_HTTPS = location.protocol === "https:";
 
 function setCameraStatus(state) {
   if (state !== lastCameraState) {
@@ -31,32 +31,31 @@ function setCameraStatus(state) {
 
 async function startCamera() {
   try {
+    if (IS_HTTPS) {
+      console.warn("HTTPS page → local WebRTC. User permission required.");
+    }
+
     const pc = new RTCPeerConnection();
 
     pc.ontrack = e => {
-      document.getElementById("video").srcObject = e.streams[0];
+      document.getElementById("cameraFeed").srcObject = e.streams[0];
     };
 
     pc.oniceconnectionstatechange = () => {
       if (pc.iceConnectionState === "failed") {
-        alert("Camera stream unavailable. Make sure MediaMTX is running.");
+        setCameraStatus("offline");
       }
     };
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    // ✅ WAIT until ICE info exists
+    // wait for ICE info
     await new Promise(resolve => {
-      if (pc.localDescription.sdp.includes("ice-ufrag")) {
-        resolve();
-      } else {
-        pc.onicegatheringstatechange = () => {
-          if (pc.iceGatheringState === "complete") {
-            resolve();
-          }
-        };
-      }
+      if (pc.localDescription.sdp.includes("ice-ufrag")) resolve();
+      pc.onicegatheringstatechange = () => {
+        if (pc.iceGatheringState === "complete") resolve();
+      };
     });
 
     const res = await fetch(
@@ -68,6 +67,8 @@ async function startCamera() {
       }
     );
 
+    if (!res.ok) throw new Error("WHEP request failed");
+
     const answerSDP = await res.text();
 
     await pc.setRemoteDescription({
@@ -75,16 +76,14 @@ async function startCamera() {
       sdp: answerSDP
     });
 
-    console.log("WebRTC connected");
     setCameraStatus("online");
+    console.log("WebRTC connected");
 
   } catch (err) {
     console.error("Camera error:", err);
     setCameraStatus("offline");
   }
 }
-
-
 
 startCamera();
 
@@ -607,6 +606,7 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
+
 
 
 
