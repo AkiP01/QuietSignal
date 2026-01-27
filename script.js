@@ -11,7 +11,70 @@ const newBtn    = document.getElementById("newPresetBtn");
 let deleteConfirmTimer = null;
 let deleteArmedIndex = null;
 let editingIndex = null;
+let lastCameraState = null;
 
+function setCameraStatus(state) {
+  if (state !== lastCameraState) {
+    logSystem(
+      state === "online"
+        ? "Camera connected"
+        : "Camera disconnected",
+      state === "online" ? "add" : "delete"
+    );
+    lastCameraState = state;
+  }
+}
+
+async function startCamera() {
+  try {
+    const pc = new RTCPeerConnection();
+
+    pc.ontrack = event => {
+      console.log("Video track received");
+      const video = document.getElementById("cameraFeed");
+      video.srcObject = event.streams[0];
+      setCameraStatus("online");
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log("WebRTC state:", pc.connectionState);
+      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+        setCameraStatus("offline");
+      }
+    };
+
+    // 🔴 REQUIRED
+    pc.addTransceiver("video", { direction: "recvonly" });
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    const res = await fetch("http://192.168.1.6:8889/tapo_cam/whep", {
+      method: "POST",
+      headers: { "Content-Type": "application/sdp" },
+      body: offer.sdp
+    });
+
+    if (!res.ok) {
+      throw new Error("WHEP request failed");
+    }
+
+    const answerSDP = await res.text();
+
+    await pc.setRemoteDescription({
+      type: "answer",
+      sdp: answerSDP
+    });
+
+    console.log("WebRTC connected");
+  } catch (err) {
+    console.error("Camera error:", err);
+    setCameraStatus("offline");
+  }
+}
+
+
+startCamera();
 
 
 deleteBtn.onclick = () => {
@@ -532,3 +595,4 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
+
