@@ -12,10 +12,16 @@ let deleteConfirmTimer = null;
 let deleteArmedIndex = null;
 let editingIndex = null;
 let lastCameraState = null;
+let lastDeletedPreset = null;
+let undoTimer = null;
 let noiseHistory = [];
 let systemLogs = []; 
+
 // each item: { timestamp: Date, message: string }
 
+let esp32Connected = false;
+let noiseMode = "simulated"; // "simulated" | "live"
+let lastESP32Seen = 0;
 
 // ================= CAMERA CONFIG =================
 const MEDIA_MTX_IP = "192.168.1.6";
@@ -109,6 +115,112 @@ async function startCamera() {
 
 startCamera();
 
+let esp32IP = localStorage.getItem("esp32IP") || "";
+let connected = false;
+
+async function fetchESP32Status() {
+  if (!esp32IP) return;
+
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 2000);
+
+  try {
+    const res = await fetch(`http://${esp32IP}/status`, {
+      signal: controller.signal
+    });
+
+    if (!res.ok) throw new Error("ESP32 offline");
+
+    const data = await res.json();
+
+    lastESP32Seen = Date.now();
+
+    if (!esp32Connected) {
+      esp32Connected = true;
+      noiseMode = "live";
+
+      showToast("ESP32 connected — Live noise mode", "success");
+      logSystem("ESP32 connected", "activate");
+      showToast("Noise simulation stopped", "info");
+    }
+
+    updateStatus(data.noise);
+    checkThreshold(data.noise, new Date());
+
+  } catch (err) {
+    if (esp32Connected && Date.now() - lastESP32Seen > 5000) {
+      esp32Connected = false;
+      noiseMode = "simulated";
+
+      showToast("ESP32 disconnected — Simulation resumed", "update");
+      logSystem("ESP32 disconnected", "delete");
+    }
+  }
+}
+
+
+async function connectESP32() {
+  const input = document.getElementById("esp32-ip");
+  const statusEl = document.getElementById("esp32Status");
+
+  const ip = input.value.trim();
+  if (!ip) {
+    showToast("Enter ESP32 IP", "error");
+    return;
+  }
+
+  try {
+    const res = await fetch(`http://${ip}/status`);
+    if (!res.ok) throw new Error();
+
+    esp32IP = ip;
+    localStorage.setItem("esp32IP", ip);
+
+    esp32Connected = true;
+    noiseMode = "live";
+
+    statusEl.textContent = "Connected";
+    statusEl.className = "status-connected";
+
+    showToast("ESP32 connected — Live mode active", "success");
+    showToast("Noise simulation disabled", "info");
+
+    logSystem("ESP32 manually connected", "activate");
+
+
+  } catch {
+    esp32Connected = false;
+    noiseMode = "simulated";
+
+    statusEl.textContent = "Disconnected";
+    statusEl.className = "status-disconnected";
+
+    showToast("ESP32 connection failed", "delete");
+    showToast("Simulation mode active", "info");
+
+    logSystem("ESP32 connection failed", "delete");
+
+  }
+}
+
+window.addEventListener("load", () => {
+  if (!esp32IP) return;
+
+  fetchESP32Status();
+});
+
+
+
+function saveIP() {
+  esp32IP = document.getElementById("esp32-ip").value;
+  localStorage.setItem("esp32IP", esp32IP);
+}
+
+function initESP32Modal() {
+  const input = document.getElementById("esp32-ip");
+  if (input && esp32IP) input.value = esp32IP;
+}
+
 
 deleteBtn.onclick = () => {
   if (editingIndex === null) return;
@@ -185,6 +297,7 @@ function renderPresetButtons() {
     btn.onclick = () => {
     activePreset = preset;
     logSystem(`Preset activated: ${preset.name}`, "activate");
+    showToast(`Preset activated: ${preset.name}`, "info");
     renderPresetButtons();
     };
 
@@ -212,8 +325,21 @@ const menuToggle = document.getElementById("menuToggle");
 const sideMenu = document.getElementById("sideMenu");
 
 menuToggle.onclick = () => {
-  sideMenu.classList.toggle("active");
+  const nowActive = sideMenu.classList.toggle("active");
+  // toggle visual states on the button so CSS can animate
+  menuToggle.classList.toggle("active", nowActive);
+  // fade the floating toggle while sidebar's internal logo expands
+  menuToggle.classList.toggle("hidden", nowActive);
 };
+
+/* Close sidebar when logo inside sidebar is clicked */
+const sidebarLogo = document.querySelector("#sideMenu .logo-wrapper .logo");
+if (sidebarLogo) {
+  sidebarLogo.onclick = () => {
+    sideMenu.classList.remove("active");
+    menuToggle.classList.remove("active", "hidden");
+  };
+}
 
 let activePreset = presets[0];
 
@@ -294,8 +420,9 @@ function logSystem(message, type = "info") {
 
 /* Simulation Loop */
 setInterval(() => {
-  simulateNoise();
-  renderHistoryTree();
+  if (noiseMode === "simulated") {
+    simulateNoise();
+  }
 }, 3000);
 
 function renderHistoryTree() {
@@ -443,6 +570,7 @@ function openModal(id) {
   modal.classList.add("active");
 
   sideMenu.classList.remove("active"); // ← UX fix (explained below)
+  menuToggle.classList.remove("active", "hidden");
 
   if (id === "presetModal") {
     renderPresetList();
@@ -455,6 +583,7 @@ function openModal(id) {
   if (id === "logModal") {
     renderLogTree();
   }
+  if (id === "esp32Modal") initESP32Modal();
 }
 
 function closeModal() {
@@ -545,10 +674,12 @@ function addPreset() {
   if (editingIndex !== null) {
     presets[editingIndex] = data;
     logSystem(`Preset updated: ${name}`, "update");
+    showToast(`Preset updated: ${name}`, "update");
     editingIndex = null;
   } else {
     presets.push(data);
     logSystem(`Preset added: ${name}`, "add");
+    showToast(`Preset added: ${name}`, "success");
   }
 
   resetPresetForm();
@@ -560,23 +691,54 @@ function addPreset() {
 
 function deletePreset(index) {
   const preset = presets[index];
-  if (!preset) return;
+  if (!preset || preset === activePreset) return;
 
-  if (preset === activePreset) {
-    alert("You cannot delete the active preset.");
-    return;
-  }
-
-  logSystem(`Preset deleted: ${preset.name}`, "delete");
+  lastDeletedPreset = { preset, index };
 
   presets.splice(index, 1);
+  renderPresetList();
+  renderPresetButtons();
 
-  editingIndex = null;
-  resetPresetForm();
+  const toast = showToast(
+    `Preset deleted: ${preset.name} — Undo?`,
+    "delete",
+    { duration: 5000 }
+  );
+
+  toast.style.cursor = "pointer";
+  toast.onclick = undoDelete;
+
+  undoTimer = setTimeout(() => {
+    lastDeletedPreset = null;
+  }, 5000);
+
+    resetPresetForm();
 
   renderPresetList();
   renderPresetButtons();
   closeModal();
+
+}
+
+function undoDelete() {
+  if (!lastDeletedPreset) return;
+
+  presets.splice(
+    lastDeletedPreset.index,
+    0,
+    lastDeletedPreset.preset
+  );
+
+  renderPresetList();
+  renderPresetButtons();
+
+  showToast(
+    `Restored: ${lastDeletedPreset.preset.name}`,
+    "success"
+  );
+
+  clearTimeout(undoTimer);
+  lastDeletedPreset = null;
 }
 
 function resetPresetForm() {
@@ -622,3 +784,21 @@ function updatePreset() {
   renderPresetButtons();
   renderPresetList();
 }
+
+function showToast(message, type = "info", options = {}) {
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+
+  const container = document.getElementById("toastContainer");
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.remove();
+  }, options.duration || 4000);
+
+  return toast;
+}
+
+const bar = document.querySelector(".noise-bar");
+bar.classList.toggle("too-noisy", value > activePreset.threshold);
