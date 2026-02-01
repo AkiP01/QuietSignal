@@ -10,26 +10,44 @@
 
 <!-- Loading Screen (Web Only) -->
 <div id="loadingScreen">
-  <h1>QuietSignal</h1>
+  <svg xmlns="http://www.w3.org/2000/svg" style="position:absolute; width:0; height:0;">
+    <filter id="stickerOutline" x="-50%" y="-50%" width="200%" height="200%">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="6" result="DILATED">
+        <animate attributeName="radius" values="6;14;6" dur="2s" repeatCount="indefinite" />
+      </feMorphology>
+      <feGaussianBlur in="DILATED" stdDeviation="3" result="BLURRED" />
+      <feFlood flood-color="#0e3f66" result="FLOOD">
+        <animate attributeName="flood-color" values="#0e3f66;#8ecad3;#ffffff;#0e3f66" dur="2s" repeatCount="indefinite"/>
+      </feFlood>
+      <feComposite in="FLOOD" in2="BLURRED" operator="in" result="OUTLINE"/>
+      <feMerge>
+        <feMergeNode in="OUTLINE"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </svg>
+
+  <img src="QuietSignalLoadingScreen.png" alt="QuietSignal Loading" class="sticker" />
 </div>
 
-<!-- Burger Menu -->
-<button id="menuToggle">☰</button>
+
+<!-- Burger Menu (logo button) -->
+<button id="menuToggle" aria-label="Open menu">
+  <img src="QuietSignalLogo.png" alt="QuietSignal" class="menu-logo" />
+</button>
 
 <nav id="sideMenu">
-<h3>Menu</h3>
+  <div class="logo-wrapper">
+  <img src="QuietSignalLogo.png" alt="QuietSignal Logo" class="logo" />
+  </div>
+  <h3 class="menu">Menu</h3>
 
-<button class="menu-btn" onclick="openModal('historyModal')">
-  Noise History
-</button>
 
-<button class="menu-btn" onclick="openModal('logModal')">
-  System Logs
-</button>
+<button class="menu-btn" onclick="openModal('historyModal')">📊 Noise History</button>
+<button class="menu-btn" onclick="openModal('logModal')">📁 System Logs</button>
+<button class="menu-btn" onclick="openModal('presetModal')">🎛️ Preset Options</button>
+<button class="menu-btn" onclick="openModal('esp32Modal')">🔌 ESP32 Connection</button>
 
-<button class="menu-btn" onclick="openModal('presetModal')">
-  Preset Options
-</button>
 
 </nav>
 
@@ -38,11 +56,9 @@
 
   <div class="camera-header">
   <span class="camera-icon" id="cameraIcon">📷</span>
-  <span class="status-dot" id="cameraStatusDot"></span>
+  <span class="status-dot" id="cameraStatusDot" aria-label="Camera status"></span>
   <span class="status-text" id="cameraStatusText">Camera: --</span>
   </div>
-
-
 
   <!-- Camera Placeholder -->
   <section class="camera-container">
@@ -55,9 +71,11 @@
     ></video>
   </section>
 
+
+  
   <!-- Status Area -->
   <section class="status-container">
-    <div class="noise-value" id="noiseValue">-- dB</div>
+    <div class="noise-value" id="noiseValue">-- adc</div>
     <div class="noise-status" id="noiseStatus">---</div>
     <div class="noise-bar">
     <div id="noiseProgress"></div>
@@ -99,14 +117,13 @@
       <label>Beep Interval (seconds)</label>
       <input type="number" id="beepInterval" min="1" max="30" value="5" />
 
+      <button id="addPresetBtn" onclick="addPreset()">Add Preset</button>
+      <button id="updatePresetBtn" style="display:none;" onclick="updatePreset()">Update Preset</button>
+      <button id="newPresetBtn" style="display:none;" onclick="startNewPreset()">+ Add New Preset</button>
       <button id="deletePresetBtn" style="display:none; background:#c62828; color:white;">
         Delete Preset
       </button>
 
-      <button id="savePresetBtn" onclick="addPreset()">Add Preset</button>
-      <button id="newPresetBtn" style="display:none;" onclick="startNewPreset()">
-        + Add New Preset
-      </button>
 
     </section>
 
@@ -135,10 +152,34 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="esp32Modal">
+  <div class="modal">
+    <button class="modal-back" onclick="closeModal()">← Back</button>
+
+    <h2>ESP32 Connection</h2>
+
+    <p><strong>Status:</strong>
+      <span id="esp32Status" class="status-disconnected">Disconnected</span>
+    </p>
+
+    <label>ESP32 IP Address</label>
+    <input
+      type="text"
+      id="esp32-ip"
+      placeholder="e.g. 192.168.1.50"
+    />
+
+    <button class="menu-btn" onclick="connectESP32()">
+      Connect
+    </button>
+  </div>
+</div>
+
+
+<div id="toastContainer"></div>
 
 
 <script src="script.js"></script>
 </body>
 </html>
-
 
