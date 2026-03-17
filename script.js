@@ -6,8 +6,9 @@ const volumeInput     = document.getElementById("volumeInput");
 const beepInterval    = document.getElementById("beepInterval");
 
 const deleteBtn = document.getElementById("deletePresetBtn");
-const saveBtn   = document.getElementById("savePresetBtn");
+const updateBtn = document.getElementById("updatePresetBtn");
 const newBtn    = document.getElementById("newPresetBtn");
+const addBtn    = document.getElementById("addPresetBtn");
 let deleteConfirmTimer = null;
 let deleteArmedIndex = null;
 let editingIndex = null;
@@ -24,7 +25,7 @@ let noiseMode = "simulated"; // "simulated" | "live"
 let lastESP32Seen = 0;
 
 // ================= CAMERA CONFIG =================
-const MEDIA_MTX_IP = "192.168.1.6";
+let MEDIA_MTX_IP = localStorage.getItem("cameraIP") || "192.168.1.6";
 const IS_HTTPS = location.protocol === "https:";
 
 function setCameraStatus(state) {
@@ -63,6 +64,28 @@ function setCameraStatus(state) {
   }
 }
 
+function connectCamera() {
+  const input = document.getElementById("camera-ip");
+  const statusEl = document.getElementById("cameraConnectionStatus");
+
+  const ip = input.value.trim();
+  if (!ip) {
+    showToast("Enter camera IP", "error");
+    return;
+  }
+
+  MEDIA_MTX_IP = ip;
+  localStorage.setItem("cameraIP", ip);
+
+  statusEl.textContent = "Status: Connecting…";
+  statusEl.className = "status-text";
+
+  showToast("Connecting to camera…", "info");
+  logSystem("Camera connection attempt", "update");
+
+  startCamera();
+}
+
 
 async function startCamera() {
   setCameraStatus("connecting");
@@ -89,7 +112,7 @@ async function startCamera() {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    const res = await fetch("http://192.168.1.6:8889/tapo_cam/whep", {
+    const res = await fetch(`http://${MEDIA_MTX_IP}:8889/tapo_cam/whep`, {
       method: "POST",
       headers: { "Content-Type": "application/sdp" },
       body: offer.sdp
@@ -138,14 +161,14 @@ async function fetchESP32Status() {
     if (!esp32Connected) {
       esp32Connected = true;
       noiseMode = "live";
-
-      showToast("ESP32 connected — Live noise mode", "success");
+      showToast("ESP32 connected � Live noise mode", "success");
       logSystem("ESP32 connected", "activate");
       showToast("Noise simulation stopped", "info");
     }
 
-    updateStatus(data.noise);
-    checkThreshold(data.noise, new Date());
+    const noisePercent = data.noisePercent ?? Math.round((data.noise / 4095) * 100);
+updateStatus(noisePercent, data.threshold);
+    checkThreshold(data.noisePercent, new Date());
 
   } catch (err) {
     if (esp32Connected && Date.now() - lastESP32Seen > 5000) {
@@ -157,7 +180,6 @@ async function fetchESP32Status() {
     }
   }
 }
-
 
 async function connectESP32() {
   const input = document.getElementById("esp32-ip");
@@ -209,13 +231,6 @@ window.addEventListener("load", () => {
   fetchESP32Status();
 });
 
-
-
-function saveIP() {
-  esp32IP = document.getElementById("esp32-ip").value;
-  localStorage.setItem("esp32IP", esp32IP);
-}
-
 function initESP32Modal() {
   const input = document.getElementById("esp32-ip");
   if (input && esp32IP) input.value = esp32IP;
@@ -223,6 +238,7 @@ function initESP32Modal() {
 
 
 deleteBtn.onclick = () => {
+  e.stopPropagation(); // prevent modal click
   if (editingIndex === null) return;
 
   // Already armed → CONFIRM DELETE
@@ -257,6 +273,13 @@ function cancelDeleteConfirm() {
   deleteBtn.textContent = "Delete Preset";
   deleteBtn.classList.remove("confirm");
 }
+
+setInterval(() => {
+  if (esp32IP) {
+    fetchESP32Status();
+  }
+}, 1000);
+
 
 
 let presets = [
@@ -348,25 +371,26 @@ function simulateNoise() {
   const timestamp = new Date();
 
   noiseHistory.push({ value, timestamp });
-  updateStatus(value);
+  const noisePercent = data.noisePercent ?? Math.round((data.noise / 4095) * 100);
+updateStatus(noisePercent, data.threshold);
   checkThreshold(value, timestamp);
 }
 
 /* Status Update */
-function updateStatus(value) {
+function updateStatus(valuePercent, thresholdPercent) {
   const noiseValue = document.getElementById("noiseValue");
   const noiseStatus = document.getElementById("noiseStatus");
   const activePresetText = document.getElementById("activePreset");
 
-  noiseValue.textContent = value + " dB";
+  noiseValue.textContent = valuePercent + "%"; // ✅ FIXED
   activePresetText.textContent = "Preset: " + activePreset.name;
 
   noiseStatus.className = "noise-status";
 
-  if (value < 60) {
+  if (valuePercent < 30) {
     noiseStatus.textContent = "Quiet";
     noiseStatus.classList.add("quiet");
-  } else if (value <= activePreset.threshold) {
+  } else if (valuePercent <= thresholdPercent) {
     noiseStatus.textContent = "Acceptable";
     noiseStatus.classList.add("acceptable");
   } else {
@@ -374,10 +398,11 @@ function updateStatus(value) {
     noiseStatus.classList.add("noisy");
   }
 
-    const progress = document.getElementById("noiseProgress");
-    const percent = Math.min((value / activePreset.threshold) * 100, 100);
-    progress.style.width = percent + "%";
+  const progress = document.getElementById("noiseProgress");
+  progress.style.width = valuePercent + "%"; // ✅ FIXED
 
+  const bar = document.querySelector(".noise-bar");
+  bar.classList.toggle("too-noisy", valuePercent > thresholdPercent);
 }
 
 function checkThreshold(value, time) {
@@ -464,7 +489,7 @@ function renderHistoryTree() {
 
           entries.forEach(n => {
             const p = document.createElement("p");
-            p.textContent = `${n.timestamp.toLocaleTimeString()} — ${n.value} dB`;
+            p.textContent = `${n.timestamp.toLocaleTimeString()} — ${n.value} ADC`;
             sessionNode.appendChild(p);
           });
 
@@ -584,6 +609,11 @@ function openModal(id) {
     renderLogTree();
   }
   if (id === "esp32Modal") initESP32Modal();
+
+  if (id === "cameraModal") {
+  const input = document.getElementById("camera-ip");
+  if (input) input.value = MEDIA_MTX_IP;
+}
 }
 
 function closeModal() {
@@ -624,7 +654,6 @@ function editPreset(index) {
   beepInterval.value = preset.interval;
 
   // Switch UI state
-  saveBtn.textContent = "Update Preset";
   newBtn.style.display = "block";
 
   // Show delete button
@@ -750,6 +779,8 @@ function resetPresetForm() {
   beepInterval.value = 5;
 
   document.getElementById("newPresetBtn").style.display = "none";
+  document.getElementById("updatePresetBtn").style.display = "none";
+  document.getElementById("addPresetBtn").style.display = "block";
 
   editingIndex = null;
   cancelDeleteConfirm();
@@ -757,7 +788,7 @@ function resetPresetForm() {
   const deleteBtn = document.getElementById("deletePresetBtn");
   deleteBtn.style.display = "none";
 
-  document.getElementById("savePresetBtn").textContent = "Add Preset";
+  document.getElementById("addPresetBtn").textContent = "Add Preset";
 }
 
 function startNewPreset() {
@@ -766,7 +797,7 @@ function startNewPreset() {
 
   document.getElementById("newPresetBtn").style.display = "none";
   document.getElementById("deletePresetBtn").style.display = "none";
-  document.getElementById("savePresetBtn").textContent = "Add Preset";
+  document.getElementById("addPresetBtn").textContent = "Add Preset";
 }
 
 function updatePreset() {
@@ -800,5 +831,5 @@ function showToast(message, type = "info", options = {}) {
   return toast;
 }
 
-const bar = document.querySelector(".noise-bar");
-bar.classList.toggle("too-noisy", value > activePreset.threshold);
+
+
