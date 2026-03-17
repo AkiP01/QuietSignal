@@ -47,6 +47,8 @@
 <button class="menu-btn" onclick="openModal('logModal')">📁 System Logs</button>
 <button class="menu-btn" onclick="openModal('presetModal')">🎛️ Preset Options</button>
 <button class="menu-btn" onclick="openModal('esp32Modal')">🔌 ESP32 Connection</button>
+<button class="menu-btn" onclick="openModal('cameraModal')">📷 Camera Connection</button>
+
 
 
 </nav>
@@ -120,9 +122,10 @@
       <button id="addPresetBtn" onclick="addPreset()">Add Preset</button>
       <button id="updatePresetBtn" style="display:none;" onclick="updatePreset()">Update Preset</button>
       <button id="newPresetBtn" style="display:none;" onclick="startNewPreset()">+ Add New Preset</button>
-      <button id="deletePresetBtn" style="display:none; background:#c62828; color:white;">
+      <button id="deletePresetBtn" class="delete-btn" style="display:none;" type="button">
         Delete Preset
       </button>
+
 
 
     </section>
@@ -172,6 +175,27 @@
     <button class="menu-btn" onclick="connectESP32()">
       Connect
     </button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="cameraModal">
+  <div class="modal">
+    <button class="modal-back" onclick="closeModal()">← Back</button>
+
+    <h2>Camera Connection</h2>
+
+    <label>Camera IP Address</label>
+    <input
+      type="text"
+      id="camera-ip"
+      placeholder="192.168.1.6"
+    />
+
+    <button onclick="connectCamera()">Connect Camera</button>
+
+    <p id="cameraConnectionStatus" class="status-text">
+      Status: —
+    </p>
   </div>
 </div>
 
